@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="MediLens">
+  <!-- Maskable: artwork stays inside the 80% safe zone so platform masks
+       (circle, squircle, rounded square) never clip it. -->
+  <rect width="512" height="512" fill="#0f7f6c"/>
+  <circle cx="240" cy="240" r="86" fill="none" stroke="#ffffff" stroke-width="28"/>
+  <path d="M212 240h56M240 212v56" stroke="#ffffff" stroke-width="24" stroke-linecap="round"/>
+  <path d="m302 302 62 62" stroke="#ffffff" stroke-width="34" stroke-linecap="round"/>
+</svg>

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="MediLens">
+  <rect width="512" height="512" rx="112" fill="#0f7f6c"/>
+  <circle cx="232" cy="232" r="112" fill="none" stroke="#ffffff" stroke-width="34"/>
+  <path d="M196 232h72M232 196v72" stroke="#ffffff" stroke-width="30" stroke-linecap="round"/>
+  <path d="m316 316 84 84" stroke="#ffffff" stroke-width="42" stroke-linecap="round"/>
+</svg>

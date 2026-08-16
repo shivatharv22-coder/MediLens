@@ -1,0 +1,4 @@
+# MediLens is an educational tool pending the regulatory review described in
+# docs/SAFETY.md. Indexing stays disabled until that review is complete.
+User-agent: *
+Disallow: /

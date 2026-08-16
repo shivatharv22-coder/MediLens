@@ -1,0 +1,26 @@
+# Local PostgreSQL for development.
+#
+# Not a production deployment: there is no TLS, no backup, and the credentials
+# are well known. Use a managed database, or a hardened compose file with real
+# secrets, for anything beyond local work.
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: medilens-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: medilens
+      POSTGRES_PASSWORD: medilens
+      POSTGRES_DB: medilens
+    ports:
+      - '5432:5432'
+    volumes:
+      - medilens-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U medilens -d medilens']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  medilens-db-data:

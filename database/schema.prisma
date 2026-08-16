@@ -1,0 +1,608 @@
+// MediLens database schema
+// -----------------------------------------------------------------------------
+// Design notes
+//  * `Medicine` is the single source of truth for medicine facts. Nothing in the
+//    UI or the AI layer is allowed to invent fields that do not exist here.
+//  * Verified English content lives on `Medicine`. Other languages live in
+//    `MedicineTranslation` and carry their own review status so an unreviewed
+//    machine translation can never masquerade as verified content.
+//  * Every medicine must reference at least one `MedicineSource`.
+// -----------------------------------------------------------------------------
+
+generator client {
+  provider = "prisma-client"
+  output   = "generated/prisma"
+}
+
+// Prisma 7 takes the connection URL from prisma.config.ts (CLI) and from the
+// driver adapter passed to `new PrismaClient()` at runtime — see lib/db.ts.
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum UserRole {
+  USER
+  ADMIN
+  SUPER_ADMIN
+}
+
+/// Lifecycle of a medicine record. Only PUBLISHED records are visible to users.
+enum MedicineStatus {
+  DRAFT
+  IN_REVIEW
+  PUBLISHED
+  ARCHIVED
+}
+
+/// How far a record has got through human verification.
+enum VerificationStatus {
+  UNVERIFIED
+  PENDING_REVIEW
+  VERIFIED
+  REJECTED
+}
+
+enum DosageForm {
+  TABLET
+  CAPSULE
+  ORAL_SUSPENSION
+  ORAL_SOLUTION
+  SYRUP
+  INJECTION
+  TOPICAL_CREAM
+  TOPICAL_OINTMENT
+  TOPICAL_GEL
+  EYE_DROPS
+  EAR_DROPS
+  NASAL_SPRAY
+  INHALER
+  POWDER
+  GRANULES
+  SUPPOSITORY
+  PATCH
+  OTHER
+}
+
+/// Category of the underlying information source. Used for the "Source" block
+/// on the medicine page and for admin filtering.
+enum SourceCategory {
+  GOVERNMENT_REGULATORY
+  OFFICIAL_PRODUCT_DOCUMENTATION
+  AUTHORITATIVE_DRUG_DATABASE
+  MANUFACTURER_DOCUMENTATION
+  ACADEMIC_REFERENCE
+  DEMO_SEED_DATA
+}
+
+/// Confidence buckets produced by the identification engine. Anything below
+/// HIGH must be presented to the user as unconfirmed.
+enum ConfidenceLevel {
+  HIGH
+  MEDIUM
+  LOW
+  NOT_IDENTIFIED
+}
+
+enum ScanType {
+  MEDICINE_PACKAGE
+  PRESCRIPTION
+  BARCODE
+}
+
+enum ScanStatus {
+  UPLOADED
+  OCR_RUNNING
+  OCR_FAILED
+  MATCHING
+  COMPLETED
+  FAILED
+}
+
+enum TranslationStatus {
+  MACHINE_UNREVIEWED
+  HUMAN_REVIEWED
+  REJECTED
+}
+
+enum AuditAction {
+  LOGIN
+  LOGIN_FAILED
+  LOGOUT
+  PASSWORD_RESET_REQUEST
+  PASSWORD_RESET_COMPLETE
+  PASSWORD_CHANGE
+  MEDICINE_CREATE
+  MEDICINE_UPDATE
+  MEDICINE_PUBLISH
+  MEDICINE_ARCHIVE
+  MEDICINE_VERIFY
+  SOURCE_CREATE
+  SOURCE_UPDATE
+  TRANSLATION_CREATE
+  TRANSLATION_UPDATE
+  TRANSLATION_REVIEW
+  USER_DELETE
+  HISTORY_CLEAR
+  ADMIN_CREATE
+  SETTINGS_UPDATE
+}
+
+// ---------------------------------------------------------------------------
+// Users, sessions, preferences
+// ---------------------------------------------------------------------------
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  /// bcrypt hash. Never a plaintext password.
+  passwordHash String
+  displayName  String?
+  role         UserRole  @default(USER)
+  isActive     Boolean   @default(true)
+  emailVerified Boolean  @default(false)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  /// Set when the user requests deletion; a scheduled job hard-deletes later.
+  deletedAt    DateTime?
+
+  preferences  UserPreference?
+  sessions     Session[]
+  passwordResetTokens PasswordResetToken[]
+  history      UserHistory[]
+  scans        MedicineScan[]
+  prescriptionScans PrescriptionScan[]
+  auditLogs    AuditLog[]        @relation("AuditActor")
+  reviewedMedicines Medicine[]   @relation("MedicineReviewer")
+  reviewedTranslations MedicineTranslation[] @relation("TranslationReviewer")
+
+  @@index([role])
+  @@index([deletedAt])
+  @@map("users")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  userId       String
+  /// SHA-256 of the session token. The raw token only ever lives in the cookie.
+  tokenHash    String   @unique
+  userAgent    String?
+  ipHash       String?
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  createdAt    DateTime @default(now())
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+/// A single-use, expiring password-reset token.
+///
+/// Only the SHA-256 of the token is stored, exactly as for sessions: a database
+/// leak alone must not yield usable reset links. The raw token exists only in
+/// the delivered message and in the URL the user clicks.
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  /// SHA-256 of the raw token. Never the token itself.
+  tokenHash String    @unique
+  expiresAt DateTime
+  /// Set the moment the token is redeemed, making it single-use.
+  usedAt    DateTime?
+  /// Hashed IP of the requester, for abuse investigation only.
+  requestIpHash String?
+  createdAt DateTime  @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("password_reset_tokens")
+}
+
+model UserPreference {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  languageCode      String   @default("en")
+  ttsEnabled        Boolean  @default(true)
+  ttsRate           Float    @default(1.0)
+  /// When false, uploaded images are discarded immediately after processing.
+  saveScanImages    Boolean  @default(false)
+  highContrast      Boolean  @default(false)
+  largeText         Boolean  @default(false)
+  onboardingDone    Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user              User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  language          SupportedLanguage @relation(fields: [languageCode], references: [code])
+
+  @@index([languageCode])
+  @@map("user_preferences")
+}
+
+model SupportedLanguage {
+  code         String   @id
+  englishName  String
+  nativeName   String
+  /// BCP-47 tag handed to the speech synthesiser, e.g. "mr-IN".
+  speechLocale String
+  isRtl        Boolean  @default(false)
+  isEnabled    Boolean  @default(true)
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  preferences  UserPreference[]
+  translations MedicineTranslation[]
+
+  @@index([isEnabled, sortOrder])
+  @@map("supported_languages")
+}
+
+// ---------------------------------------------------------------------------
+// Medicine data
+// ---------------------------------------------------------------------------
+
+model ActiveIngredient {
+  id           String   @id @default(cuid())
+  /// Lower-cased canonical name, used for de-duplication and lookup.
+  slug         String   @unique
+  name         String
+  /// Alternative spellings / INN vs USAN differences, lower-cased.
+  synonyms     String[] @default([])
+  description  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  medicines    MedicineIngredient[]
+
+  @@index([name])
+  @@map("active_ingredients")
+}
+
+model Medicine {
+  id             String     @id @default(cuid())
+  /// URL-safe unique key: brand + strength + form. Prevents duplicate records.
+  slug           String     @unique
+
+  brandName      String
+  /// Denormalised, human-readable generic name, e.g. "Paracetamol".
+  genericName    String
+  /// Combined strength label exactly as printed, e.g. "500 mg" or "125 mg/5 ml".
+  strength       String
+  dosageForm     DosageForm
+  manufacturer   String?
+  /// Full composition line as printed on the pack.
+  compositionText String?
+  packSizeText   String?
+  country        String     @default("IN")
+
+  // --- Verified educational content (English is the canonical language) ----
+  /// Plain-language answer to "What is this medicine?".
+  summary            String?
+  /// Verified indications, phrased as "commonly used for ...".
+  commonUses         String[] @default([])
+  /// Short, non-personalised description of how the drug class generally works.
+  mechanismSummary   String?
+  commonSideEffects  String[] @default([])
+  importantWarnings  String[] @default([])
+  /// General groups advised to take extra care, e.g. "People with liver disease".
+  cautionGroups      String[] @default([])
+  storageInformation String?
+  /// True when the pack is legally prescription-only in `country`.
+  prescriptionOnly   Boolean  @default(true)
+
+  // --- Governance ----------------------------------------------------------
+  status             MedicineStatus     @default(DRAFT)
+  verificationStatus VerificationStatus @default(UNVERIFIED)
+  lastVerifiedAt     DateTime?
+  reviewerId         String?
+  reviewNotes        String?
+  /// Free-text search helper: lower-cased brand + generic + manufacturer.
+  searchText         String             @default("")
+
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  reviewer       User?      @relation("MedicineReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+  ingredients    MedicineIngredient[]
+  sources        MedicineSource[]
+  translations   MedicineTranslation[]
+  barcodes       MedicineBarcode[]
+  scanResults    ScanResult[]
+  history        UserHistory[]
+
+  @@unique([brandName, strength, dosageForm, manufacturer], name: "medicine_identity")
+  @@index([status, verificationStatus])
+  @@index([genericName])
+  @@index([manufacturer])
+  @@index([searchText])
+  @@map("medicines")
+}
+
+model MedicineIngredient {
+  id            String  @id @default(cuid())
+  medicineId    String
+  ingredientId  String
+  /// Strength contributed by this ingredient, e.g. "500".
+  amount        String?
+  /// Unit for `amount`, e.g. "mg".
+  unit          String?
+  isActive      Boolean @default(true)
+  sortOrder     Int     @default(0)
+
+  medicine      Medicine         @relation(fields: [medicineId], references: [id], onDelete: Cascade)
+  ingredient    ActiveIngredient @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
+
+  @@unique([medicineId, ingredientId])
+  @@index([ingredientId])
+  @@map("medicine_ingredients")
+}
+
+model MedicineSource {
+  id            String         @id @default(cuid())
+  medicineId    String
+  category      SourceCategory
+  /// Human-readable source name, e.g. "CDSCO product information".
+  name          String
+  url           String?
+  /// Edition / revision of the source document, when it has one.
+  version       String?
+  retrievedAt   DateTime?
+  notes         String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  medicine      Medicine       @relation(fields: [medicineId], references: [id], onDelete: Cascade)
+
+  @@index([medicineId])
+  @@index([category])
+  @@map("medicine_sources")
+}
+
+model MedicineTranslation {
+  id           String            @id @default(cuid())
+  medicineId   String
+  languageCode String
+
+  summary            String?
+  commonUses         String[] @default([])
+  mechanismSummary   String?
+  commonSideEffects  String[] @default([])
+  importantWarnings  String[] @default([])
+  cautionGroups      String[] @default([])
+  storageInformation String?
+
+  status       TranslationStatus @default(MACHINE_UNREVIEWED)
+  reviewerId   String?
+  reviewedAt   DateTime?
+  /// Which provider produced the draft, e.g. "template" or "anthropic".
+  producedBy   String?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  medicine     Medicine          @relation(fields: [medicineId], references: [id], onDelete: Cascade)
+  language     SupportedLanguage @relation(fields: [languageCode], references: [code], onDelete: Cascade)
+  reviewer     User?             @relation("TranslationReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+
+  @@unique([medicineId, languageCode])
+  @@index([languageCode, status])
+  @@map("medicine_translations")
+}
+
+/// Barcodes are a lookup hint only. A barcode hit still has to be confirmed
+/// against the medicine record before anything is shown as identified.
+model MedicineBarcode {
+  id         String   @id @default(cuid())
+  medicineId String
+  /// EAN-13 / UPC / GS1 payload as scanned.
+  code       String
+  symbology  String?
+  createdAt  DateTime @default(now())
+
+  medicine   Medicine @relation(fields: [medicineId], references: [id], onDelete: Cascade)
+
+  @@unique([code, medicineId])
+  @@index([code])
+  @@map("medicine_barcodes")
+}
+
+// ---------------------------------------------------------------------------
+// Scanning
+// ---------------------------------------------------------------------------
+
+model MedicineScan {
+  id            String     @id @default(cuid())
+  /// Null for guest scans.
+  userId        String?
+  /// Opaque per-device id so a guest can see their own scan results.
+  guestKey      String?
+  type          ScanType   @default(MEDICINE_PACKAGE)
+  status        ScanStatus @default(UPLOADED)
+  languageCode  String     @default("en")
+
+  /// Storage key of the uploaded image, cleared once retention expires.
+  imageKey      String?
+  imageMimeType String?
+  imageBytes    Int?
+  /// When the stored image becomes eligible for deletion.
+  imageExpiresAt DateTime?
+
+  /// Untouched OCR output. Never overwritten by interpreted values.
+  rawOcrText    String?
+  ocrProvider   String?
+  ocrConfidence Float?
+  ocrDurationMs Int?
+
+  /// Non-sensitive failure reason for admin triage, e.g. "NO_TEXT_DETECTED".
+  failureCode   String?
+
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  user          User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  results       ScanResult[]
+
+  @@index([userId, createdAt])
+  @@index([guestKey])
+  @@index([status, createdAt])
+  @@index([imageExpiresAt])
+  @@map("medicine_scans")
+}
+
+model ScanResult {
+  id              String          @id @default(cuid())
+  scanId          String
+  /// Null when nothing in the database matched.
+  medicineId      String?
+  confidenceLevel ConfidenceLevel
+  /// 0..1 score produced by the matcher.
+  confidenceScore Float
+  /// Which matching strategies fired, e.g. ["BRAND_EXACT", "STRENGTH"].
+  matchedOn       String[]        @default([])
+  /// Values the extractor read off the pack, kept separate from the DB record.
+  extractedBrand      String?
+  extractedGeneric    String?
+  extractedStrength   String?
+  extractedForm       String?
+  extractedManufacturer String?
+  /// Rank within the candidate list; 0 is the best candidate.
+  rank            Int             @default(0)
+  createdAt       DateTime        @default(now())
+
+  scan            MedicineScan @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  medicine        Medicine?    @relation(fields: [medicineId], references: [id], onDelete: SetNull)
+
+  @@index([scanId, rank])
+  @@index([medicineId])
+  @@index([confidenceLevel])
+  @@map("scan_results")
+}
+
+model PrescriptionScan {
+  id            String     @id @default(cuid())
+  userId        String?
+  guestKey      String?
+  status        ScanStatus @default(UPLOADED)
+  languageCode  String     @default("en")
+
+  imageKey      String?
+  imageExpiresAt DateTime?
+
+  rawOcrText    String?
+  ocrProvider   String?
+  ocrConfidence Float?
+  /// True when the OCR text is too unreliable to show extracted lines at all.
+  isLegible     Boolean    @default(true)
+  failureCode   String?
+
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  user          User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
+  lines         PrescriptionLine[]
+
+  @@index([userId, createdAt])
+  @@index([guestKey])
+  @@index([imageExpiresAt])
+  @@map("prescription_scans")
+}
+
+/// One extracted line from a prescription. Stored verbatim.
+/// MediLens never rewrites, corrects, or interprets these values.
+model PrescriptionLine {
+  id                 String  @id @default(cuid())
+  prescriptionScanId String
+  lineNumber         Int
+  /// The line exactly as OCR read it.
+  rawText            String
+  /// Candidate medicine name token, only when confidently separable.
+  detectedName       String?
+  detectedStrength   String?
+  /// Frequency text copied verbatim, e.g. "1-0-1 x 5 days". Never normalised.
+  detectedFrequency  String?
+  /// 0..1 OCR confidence for this line.
+  confidence         Float   @default(0)
+  /// True when the line was too unclear to separate into fields.
+  needsVerification  Boolean @default(true)
+
+  prescriptionScan   PrescriptionScan @relation(fields: [prescriptionScanId], references: [id], onDelete: Cascade)
+
+  @@unique([prescriptionScanId, lineNumber])
+  @@map("prescription_lines")
+}
+
+// ---------------------------------------------------------------------------
+// History
+// ---------------------------------------------------------------------------
+
+model UserHistory {
+  id           String   @id @default(cuid())
+  userId       String
+  medicineId   String?
+  /// Snapshot of the name at view time, so history survives record archival.
+  medicineName String
+  languageCode String   @default("en")
+  /// Only set when the user explicitly chose to keep the image.
+  imageKey     String?
+  source       String   @default("SCAN")
+  viewedAt     DateTime @default(now())
+
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  medicine     Medicine? @relation(fields: [medicineId], references: [id], onDelete: SetNull)
+
+  @@index([userId, viewedAt])
+  @@index([medicineId])
+  @@map("user_history")
+}
+
+// ---------------------------------------------------------------------------
+// Operations
+// ---------------------------------------------------------------------------
+
+model AuditLog {
+  id          String      @id @default(cuid())
+  actorId     String?
+  actorEmail  String?
+  action      AuditAction
+  entityType  String?
+  entityId    String?
+  /// Structured, non-sensitive detail. Must never contain medical images,
+  /// prescription text, or credentials.
+  metadata    Json?
+  ipHash      String?
+  userAgent   String?
+  createdAt   DateTime    @default(now())
+
+  actor       User?       @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([actorId, createdAt])
+  @@index([action, createdAt])
+  @@index([entityType, entityId])
+  @@map("audit_logs")
+}
+
+/// Application-level error log for admin triage. Deliberately separate from
+/// AuditLog so that operational noise never mixes with the security trail.
+model SystemErrorLog {
+  id         String   @id @default(cuid())
+  /// Stable machine code, e.g. "OCR_PROVIDER_FAILURE".
+  code       String
+  /// Which subsystem raised it: ocr | ai | database | storage | auth | api.
+  area       String
+  message    String
+  /// Redacted context only.
+  context    Json?
+  createdAt  DateTime @default(now())
+
+  @@index([area, createdAt])
+  @@index([code])
+  @@map("system_error_logs")
+}
