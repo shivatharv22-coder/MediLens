@@ -3,9 +3,11 @@ import type { DosageForm, SourceCategory } from '@/types/medicine';
 /**
  * Display labels.
  *
- * These are English labels for enum values. They are intentionally not part of
- * the i18n dictionaries: the set changes with the schema, and a missing label
- * should read as the raw enum rather than as an empty string.
+ * The English tables below are the fallback, not the whole story: each function
+ * takes an optional label map so a caller holding a dictionary can render the
+ * user's language. The fallback chain is deliberate -- supplied label, then
+ * English, then the raw enum -- so a value added to the schema before the
+ * dictionaries catch up reads as the enum rather than as an empty string.
  */
 
 const DOSAGE_FORM_LABELS: Record<DosageForm, string> = {
@@ -29,8 +31,15 @@ const DOSAGE_FORM_LABELS: Record<DosageForm, string> = {
   OTHER: 'Other',
 };
 
-export function dosageFormLabel(form: DosageForm | string): string {
-  return DOSAGE_FORM_LABELS[form as DosageForm] ?? String(form).replace(/_/g, ' ').toLowerCase();
+export function dosageFormLabel(
+  form: DosageForm | string,
+  labels?: Partial<Record<DosageForm, string>>,
+): string {
+  return (
+    labels?.[form as DosageForm] ??
+    DOSAGE_FORM_LABELS[form as DosageForm] ??
+    String(form).replace(/_/g, ' ').toLowerCase()
+  );
 }
 
 const SOURCE_CATEGORY_LABELS: Record<SourceCategory, string> = {
@@ -42,8 +51,12 @@ const SOURCE_CATEGORY_LABELS: Record<SourceCategory, string> = {
   DEMO_SEED_DATA: 'Demo seed data — not a verified medical source',
 };
 
-export function sourceCategoryLabel(category: SourceCategory | string): string {
+export function sourceCategoryLabel(
+  category: SourceCategory | string,
+  labels?: Partial<Record<SourceCategory, string>>,
+): string {
   return (
+    labels?.[category as SourceCategory] ??
     SOURCE_CATEGORY_LABELS[category as SourceCategory] ??
     String(category).replace(/_/g, ' ').toLowerCase()
   );

@@ -25,6 +25,17 @@ export const CLIENT_IMAGE_MAX_EDGE = 1600;
 export const CLIENT_IMAGE_JPEG_QUALITY = 0.82;
 
 /**
+ * Longest edge kept for on-device OCR.
+ *
+ * Higher than the upload ceiling on purpose. 1600 px is a *network* budget,
+ * chosen when the image had to be sent to the server to be read. OCR now runs
+ * on the device, so that budget no longer applies to it -- and the small print
+ * that matters most, the composition line, is the first thing to fall below a
+ * readable x-height when the image is shrunk.
+ */
+export const CLIENT_OCR_MAX_EDGE = 2400;
+
+/**
  * Confidence thresholds for medicine identification.
  * Only HIGH may be presented as a confirmed identification.
  */

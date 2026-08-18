@@ -1,3 +1,5 @@
+import type { DosageForm, SourceCategory } from '@/types/medicine';
+
 /**
  * Dictionary shape.
  *
@@ -302,6 +304,18 @@ export interface Dictionary {
     helpTitle: string;
     readDisclaimer: string;
   };
+  /**
+   * Enum display labels.
+   *
+   * Typed as full Records so that adding a dosage form or source category to
+   * the schema fails the build until every language supplies a label, rather
+   * than silently showing English to a Hindi or Marathi reader.
+   *
+   * Only the form and the provenance are translated. Medicine names, active
+   * ingredients, manufacturers and dose units stay exactly as printed.
+   */
+  dosageForms: Record<DosageForm, string>;
+  sourceCategories: Record<SourceCategory, string>;
   errors: {
     generic: string;
     network: string;

@@ -113,7 +113,7 @@ export function SearchClient() {
                     <option value="">{dict.common.optional}</option>
                     {DOSAGE_FORMS.map((form) => (
                       <option key={form} value={form}>
-                        {dosageFormLabel(form)}
+                        {dosageFormLabel(form, dict.dosageForms)}
                       </option>
                     ))}
                   </Select>
@@ -173,7 +173,7 @@ export function SearchClient() {
                       </span>
                       <span className="block text-sm text-ink-600">
                         {medicine.genericName} · {medicine.strength} ·{' '}
-                        {dosageFormLabel(medicine.dosageForm)}
+                        {dosageFormLabel(medicine.dosageForm, dict.dosageForms)}
                       </span>
                       {medicine.manufacturer && (
                         <span className="block text-xs text-ink-500">{medicine.manufacturer}</span>

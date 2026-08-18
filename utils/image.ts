@@ -10,7 +10,11 @@ import { CLIENT_IMAGE_JPEG_QUALITY, CLIENT_IMAGE_MAX_EDGE } from '@/config/app';
 
 async function loadBitmap(source: Blob): Promise<ImageBitmap | HTMLImageElement> {
   if (typeof createImageBitmap === 'function') {
-    return createImageBitmap(source);
+    // `imageOrientation` is pinned rather than left to the default, which has
+    // differed between engines. An <img> always applies EXIF orientation, so a
+    // bitmap that ignored it would be rotated relative to the preview the user
+    // cropped against -- and the crop would be applied to the wrong pixels.
+    return createImageBitmap(source, { imageOrientation: 'from-image' });
   }
   // Safari fallback.
   const url = URL.createObjectURL(source);
@@ -80,6 +84,50 @@ export async function prepareImage(
     width: targetWidth,
     height: targetHeight,
     previewUrl: URL.createObjectURL(blob),
+  };
+}
+
+export interface ContentRect {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * Where an `object-contain` image actually sits inside its element box.
+ *
+ * An element showing a contained image is not the image: when the two aspect
+ * ratios differ the image is centred and letterboxed, and the bars belong to
+ * the element, not the picture. A pointer position measured against the
+ * element therefore does not describe the same point on the image.
+ *
+ * This matters because a crop drawn on the preview is later applied to the
+ * full-resolution pixels. Measuring against the element makes the overlay and
+ * the pixels that actually get cropped disagree -- silently, because the
+ * overlay still lands under the user's finger.
+ */
+export function containedImageRect(
+  element: { width: number; height: number },
+  naturalWidth: number,
+  naturalHeight: number,
+): ContentRect {
+  // Before an image has loaded its natural size is 0. Treating the whole
+  // element as the content area keeps the maths defined; callers gate on the
+  // image being loaded before trusting a crop.
+  if (!naturalWidth || !naturalHeight || element.width <= 0 || element.height <= 0) {
+    return { left: 0, top: 0, width: Math.max(0, element.width), height: Math.max(0, element.height) };
+  }
+
+  const scale = Math.min(element.width / naturalWidth, element.height / naturalHeight);
+  const width = naturalWidth * scale;
+  const height = naturalHeight * scale;
+
+  return {
+    left: (element.width - width) / 2,
+    top: (element.height - height) / 2,
+    width,
+    height,
   };
 }
 

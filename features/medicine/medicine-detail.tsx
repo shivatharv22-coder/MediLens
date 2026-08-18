@@ -44,7 +44,7 @@ export function MedicineDetail({ medicine }: { medicine: LocalisedMedicine }) {
 
         <h1 className="text-2xl font-semibold text-ink-900">{medicine.brandName}</h1>
         <p className="text-base text-ink-600">
-          {medicine.genericName} · {medicine.strength} · {dosageFormLabel(medicine.dosageForm)}
+          {medicine.genericName} · {medicine.strength} · {dosageFormLabel(medicine.dosageForm, dict.dosageForms)}
         </p>
       </div>
 
@@ -64,7 +64,7 @@ export function MedicineDetail({ medicine }: { medicine: LocalisedMedicine }) {
         <dl>
           <DataRow label={m.activeIngredient} value={medicine.genericName} />
           <DataRow label={m.strength} value={medicine.strength} />
-          <DataRow label={m.dosageForm} value={dosageFormLabel(medicine.dosageForm)} />
+          <DataRow label={m.dosageForm} value={dosageFormLabel(medicine.dosageForm, dict.dosageForms)} />
           {medicine.manufacturer && (
             <DataRow label={m.manufacturer} value={medicine.manufacturer} />
           )}
@@ -132,7 +132,7 @@ export function MedicineDetail({ medicine }: { medicine: LocalisedMedicine }) {
             {medicine.sources.map((source) => (
               <li key={source.id} className="text-sm">
                 <p className="font-medium text-ink-900">{source.name}</p>
-                <p className="text-ink-600">{sourceCategoryLabel(source.category)}</p>
+                <p className="text-ink-600">{sourceCategoryLabel(source.category, dict.sourceCategories)}</p>
                 {source.version && <p className="text-xs text-ink-500">{source.version}</p>}
                 {source.url && (
                   <a

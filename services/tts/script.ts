@@ -30,7 +30,7 @@ export function buildSpeechScript(
     segments.push({ heading, body: items.map((i) => i.replace(/\.$/, '')).join('. ') + '.' });
   };
 
-  push(null, `${medicine.brandName}. ${medicine.strength}. ${dosageFormLabel(medicine.dosageForm)}.`);
+  push(null, `${medicine.brandName}. ${medicine.strength}. ${dosageFormLabel(medicine.dosageForm, dict.dosageForms)}.`);
   push(m.activeIngredient, medicine.genericName);
   push(m.whatIsThis, medicine.summary);
   pushList(m.commonUses, medicine.commonUses);

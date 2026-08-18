@@ -143,7 +143,7 @@ function CandidateRow({
         {m.brandName}
       </p>
       <p className="text-sm text-ink-600">
-        {m.genericName} · {m.strength} · {dosageFormLabel(m.dosageForm)}
+        {m.genericName} · {m.strength} · {dosageFormLabel(m.dosageForm, dict.dosageForms)}
       </p>
       {m.manufacturer && <p className="text-xs text-ink-500">{m.manufacturer}</p>}
       {candidate.signals.length > 0 && (

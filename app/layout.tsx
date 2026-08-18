@@ -1,17 +1,28 @@
 import type { Metadata, Viewport } from 'next';
-import { APP_NAME, APP_PURPOSE_STATEMENT, APP_TAGLINE } from '@/config/app';
+import { APP_NAME, APP_PURPOSE_STATEMENT } from '@/config/app';
 import { getLanguage } from '@/config/languages';
-import { getRequestLocale } from '@/lib/i18n/server';
+import { getRequestDictionary, getRequestLocale } from '@/lib/i18n/server';
 import { LanguageProvider } from '@/lib/i18n/client';
 import { PreferencesProvider } from '@/components/preferences-provider';
 import { ServiceWorkerRegistrar } from '@/components/service-worker';
 import './globals.css';
 
-export const metadata: Metadata = {
-  title: {
-    default: `${APP_NAME} — ${APP_TAGLINE}`,
-    template: `%s · ${APP_NAME}`,
-  },
+/**
+ * Resolved per request so the tab title and description follow the reader's
+ * language. `APP_NAME` stays as-is: it is the product's name, not a phrase.
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  const { dict } = await getRequestDictionary();
+  return {
+    ...baseMetadata,
+    title: {
+      default: `${APP_NAME} — ${dict.common.tagline}`,
+      template: `%s · ${APP_NAME}`,
+    },
+  };
+}
+
+const baseMetadata: Metadata = {
   description: APP_PURPOSE_STATEMENT,
   applicationName: APP_NAME,
   manifest: '/manifest.webmanifest',
