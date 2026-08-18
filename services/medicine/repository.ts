@@ -1,5 +1,7 @@
+import type { MatchHints } from '@/types/identification';
 import type {
   Medicine,
+  MedicineMatchRecord,
   MedicineSearchQuery,
   MedicineSummary,
   Paginated,
@@ -22,14 +24,22 @@ export interface MedicineRepository {
   findByIdOrSlug(key: string): Promise<Medicine | null>;
   findManyByIds(ids: string[]): Promise<Medicine[]>;
   search(query: MedicineSearchQuery): Promise<Paginated<MedicineSummary>>;
-  /** Every published record. Used by the identification matcher. */
-  listForMatching(): Promise<Medicine[]>;
+  /**
+   * Published records that could plausibly be what the pack shows.
+   *
+   * This is a *prefilter*, not a match: it exists so the scorer never has to
+   * see the whole catalogue. A quarter of a million rows cannot be loaded per
+   * scan, and taking an arbitrary slice of them is worse than useless — an
+   * alphabetical `take` silently makes every medicine after the As
+   * unidentifiable.
+   */
+  findMatchCandidates(hints: MatchHints): Promise<MedicineMatchRecord[]>;
   findByBarcode(code: string): Promise<Medicine[]>;
   listManufacturers(): Promise<string[]>;
   count(): Promise<number>;
 }
 
-export function toSummary(medicine: Medicine): MedicineSummary {
+export function toSummary(medicine: MedicineMatchRecord): MedicineSummary {
   return {
     id: medicine.id,
     slug: medicine.slug,

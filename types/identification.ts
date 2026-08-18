@@ -36,6 +36,21 @@ export interface ExtractedPackageFields {
   barcode: string | null;
 }
 
+/**
+ * What the repository is given to narrow the catalogue down to a shortlist the
+ * matcher can score.
+ *
+ * Every field is a *claim read off the pack*, so the prefilter is deliberately
+ * generous: it only has to make sure the right record is in the shortlist.
+ * Deciding which one is right stays with the matcher.
+ */
+export interface MatchHints {
+  brandName: string | null;
+  genericName: string | null;
+  ingredientNames: string[];
+  manufacturer: string | null;
+}
+
 export interface MatchCandidate {
   medicine: MedicineSummary;
   score: number;

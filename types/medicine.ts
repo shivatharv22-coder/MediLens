@@ -119,6 +119,20 @@ export interface Medicine extends MedicineContent {
   updatedAt: string;
 }
 
+/**
+ * The subset of a medicine the identification matcher actually reads.
+ *
+ * Matching runs over a shortlist of candidate rows, so it must not drag along
+ * sources, translations and barcodes: loading a full `Medicine` per candidate
+ * turns a cheap prefilter into four joins per row.
+ */
+export type MedicineMatchRecord = Pick<
+  Medicine,
+  'id' | 'slug' | 'brandName' | 'genericName' | 'strength' | 'dosageForm' | 'manufacturer'
+> & {
+  ingredients: { name: string }[];
+};
+
 /** Compact shape used by search results and candidate lists. */
 export interface MedicineSummary {
   id: string;

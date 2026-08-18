@@ -97,6 +97,7 @@ export const hi: Dictionary = {
     processingCheck: 'दवा की जानकारी जाँची जा रही है...',
     processingVerify: 'दवा सत्यापित की जा रही है...',
     processingExplain: 'आपकी जानकारी तैयार की जा रही है...',
+    processingFirstScan: 'इस डिवाइस पर पहला स्कैन: टेक्स्ट रीडर डाउनलोड हो रहा है। अगले स्कैन तुरंत शुरू होंगे।',
     permissionDeniedTitle: 'कैमरा अनुमति बंद है',
     permissionDeniedBody:
       'स्कैन करने के लिए MediLens को कैमरा चाहिए। ब्राउज़र सेटिंग्स में कैमरा अनुमति दें, या फ़ोटो अपलोड करें।',

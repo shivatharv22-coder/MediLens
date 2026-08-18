@@ -1,6 +1,6 @@
 import { CONFIDENCE_THRESHOLDS, MIN_LEAD_OVER_RUNNER_UP } from '@/config/app';
 import { canonicalStrength, normalise, similarity } from '@/utils/text';
-import type { Medicine } from '@/types/medicine';
+import type { MedicineMatchRecord } from '@/types/medicine';
 import type {
   ConfidenceLevel,
   ExtractedPackageFields,
@@ -38,7 +38,27 @@ interface FieldOutcome {
   contradicts: boolean;
 }
 
-function matchBrand(extracted: string | null, medicine: Medicine): FieldOutcome {
+/**
+ * `needle` occurs in `haystack` delimited by spaces or string ends.
+ *
+ * Both inputs are expected to be `normalise`d, which collapses everything
+ * except alphanumerics to single spaces.
+ */
+function containsWholeWords(haystack: string, needle: string): boolean {
+  if (!needle || needle.length > haystack.length) return false;
+
+  for (let from = 0; ; ) {
+    const at = haystack.indexOf(needle, from);
+    if (at === -1) return false;
+    const startsWord = at === 0 || haystack[at - 1] === ' ';
+    const end = at + needle.length;
+    const endsWord = end === haystack.length || haystack[end] === ' ';
+    if (startsWord && endsWord) return true;
+    from = at + 1;
+  }
+}
+
+function matchBrand(extracted: string | null, medicine: MedicineMatchRecord): FieldOutcome {
   if (!extracted) return { score: 0, signal: null, contradicts: false };
 
   const packBrand = normalise(extracted);
@@ -64,7 +84,11 @@ function matchBrand(extracted: string | null, medicine: Medicine): FieldOutcome 
     return { score: 0.92, signal: 'BRAND_EXACT', contradicts: false };
   }
 
-  if (recordBrand.includes(packBrand) || packBrand.includes(recordBrand)) {
+  // Whole words only. A plain `includes` makes "Aeldolo 650mg" a fuzzy match
+  // for "Dolo 650", and in a catalogue of a quarter of a million Indian brands
+  // that collision is the rule rather than the exception — dozens of unrelated
+  // products embed a shorter brand name inside their own.
+  if (containsWholeWords(recordBrand, packBrand) || containsWholeWords(packBrand, recordBrand)) {
     return { score: 0.85, signal: 'BRAND_FUZZY', contradicts: false };
   }
 
@@ -78,7 +102,7 @@ function matchBrand(extracted: string | null, medicine: Medicine): FieldOutcome 
 
 function matchGeneric(
   extracted: ExtractedPackageFields,
-  medicine: Medicine,
+  medicine: MedicineMatchRecord,
 ): FieldOutcome {
   const packNames = [extracted.genericName, ...extracted.ingredientCandidates]
     .filter((v): v is string => !!v)
@@ -114,7 +138,7 @@ function matchGeneric(
   return { score: best, signal, contradicts: false };
 }
 
-function matchStrength(extracted: ExtractedPackageFields, medicine: Medicine): FieldOutcome {
+function matchStrength(extracted: ExtractedPackageFields, medicine: MedicineMatchRecord): FieldOutcome {
   const recordStrength = canonicalStrength(medicine.strength);
   if (!recordStrength) return { score: 0, signal: null, contradicts: false };
 
@@ -133,7 +157,7 @@ function matchStrength(extracted: ExtractedPackageFields, medicine: Medicine): F
   return { score: 0, signal: null, contradicts: true };
 }
 
-function matchForm(extracted: ExtractedPackageFields, medicine: Medicine): FieldOutcome {
+function matchForm(extracted: ExtractedPackageFields, medicine: MedicineMatchRecord): FieldOutcome {
   if (!extracted.dosageForm) return { score: 0, signal: null, contradicts: false };
   if (extracted.dosageForm === medicine.dosageForm) {
     return { score: 1, signal: 'DOSAGE_FORM', contradicts: false };
@@ -146,7 +170,7 @@ function matchForm(extracted: ExtractedPackageFields, medicine: Medicine): Field
   return { score: 0, signal: null, contradicts: true };
 }
 
-function matchManufacturer(extracted: ExtractedPackageFields, medicine: Medicine): FieldOutcome {
+function matchManufacturer(extracted: ExtractedPackageFields, medicine: MedicineMatchRecord): FieldOutcome {
   if (!extracted.manufacturer || !medicine.manufacturer) {
     return { score: 0, signal: null, contradicts: false };
   }
@@ -162,7 +186,7 @@ function matchManufacturer(extracted: ExtractedPackageFields, medicine: Medicine
 
 export function scoreMedicine(
   extracted: ExtractedPackageFields,
-  medicine: Medicine,
+  medicine: MedicineMatchRecord,
 ): { score: number; signals: MatchSignal[] } {
   const outcomes = {
     brand: matchBrand(extracted.brandName, medicine),
@@ -213,13 +237,13 @@ function levelFor(score: number): ConfidenceLevel {
 
 export interface IdentifyOptions {
   /** Barcode read from the pack, already verified to exist in the catalogue. */
-  barcodeMatches?: Medicine[];
+  barcodeMatches?: MedicineMatchRecord[];
   maxCandidates?: number;
 }
 
 export function identify(
   extracted: ExtractedPackageFields,
-  catalogue: Medicine[],
+  catalogue: MedicineMatchRecord[],
   options: IdentifyOptions = {},
 ): IdentificationResult {
   const maxCandidates = options.maxCandidates ?? 5;
@@ -294,6 +318,7 @@ export function identify(
 }
 
 export const __testables = {
+  containsWholeWords,
   matchBrand,
   matchGeneric,
   matchStrength,

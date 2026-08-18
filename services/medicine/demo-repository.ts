@@ -114,7 +114,13 @@ export class DemoMedicineRepository implements MedicineRepository {
     return score;
   }
 
-  async listForMatching(): Promise<Medicine[]> {
+  /**
+   * The demo dataset is a few dozen records, so there is nothing to prefilter:
+   * hand the matcher everything and let it score. The wider return type is
+   * deliberate — callers holding a `DemoMedicineRepository` directly (the
+   * tests) still see the full record.
+   */
+  async findMatchCandidates(): Promise<Medicine[]> {
     return this.medicines.filter((m) => m.status === 'PUBLISHED');
   }
 

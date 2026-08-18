@@ -16,6 +16,7 @@
     "db:migrate": "prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
     "db:seed": "tsx database/seed.ts",
+    "db:languages": "tsx scripts/ensure-languages.ts",
     "db:studio": "prisma studio",
     "admin:create": "tsx scripts/create-admin.ts",
     "dev:reset-link": "tsx scripts/dev-reset-link.ts",

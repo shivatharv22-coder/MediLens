@@ -102,6 +102,7 @@ export interface Dictionary {
     processingCheck: string;
     processingVerify: string;
     processingExplain: string;
+    processingFirstScan: string;
     permissionDeniedTitle: string;
     permissionDeniedBody: string;
     cameraUnavailableTitle: string;

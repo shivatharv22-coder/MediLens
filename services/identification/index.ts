@@ -1,6 +1,10 @@
 import 'server-only';
 import type { MedicineRepository } from '@/services/medicine/repository';
-import type { ExtractedPackageFields, IdentificationResult } from '@/types/identification';
+import type {
+  ExtractedPackageFields,
+  IdentificationResult,
+  MatchHints,
+} from '@/types/identification';
 import { extractPackageFields, hasUsableText } from './extract';
 import { identify } from './match';
 
@@ -38,10 +42,10 @@ export async function identifyFromOcrText(
   }
 
   const extracted = extractPackageFields(rawOcrText);
-  const catalogue = await repository.listForMatching();
-  const barcodeMatches = extracted.barcode
-    ? await repository.findByBarcode(extracted.barcode)
-    : [];
+  const [catalogue, barcodeMatches] = await Promise.all([
+    repository.findMatchCandidates(hintsFrom(extracted)),
+    extracted.barcode ? repository.findByBarcode(extracted.barcode) : Promise.resolve([]),
+  ]);
 
   return identify(extracted, catalogue, { barcodeMatches });
 }
@@ -55,9 +59,27 @@ export async function identifyFromFields(
   fields: ExtractedPackageFields,
   repository: MedicineRepository,
 ): Promise<IdentificationResult> {
-  const catalogue = await repository.listForMatching();
-  const barcodeMatches = fields.barcode ? await repository.findByBarcode(fields.barcode) : [];
+  const [catalogue, barcodeMatches] = await Promise.all([
+    repository.findMatchCandidates(hintsFrom(fields)),
+    fields.barcode ? repository.findByBarcode(fields.barcode) : Promise.resolve([]),
+  ]);
   return identify(fields, catalogue, { barcodeMatches });
+}
+
+/**
+ * The names worth querying the catalogue with.
+ *
+ * Strength and dosage form are deliberately left out: they are how the matcher
+ * *rejects* a candidate, not how it finds one, and filtering on an OCR-read
+ * "650 mg" would hide the right record whenever the digit came back wrong.
+ */
+function hintsFrom(extracted: ExtractedPackageFields): MatchHints {
+  return {
+    brandName: extracted.brandName,
+    genericName: extracted.genericName,
+    ingredientNames: extracted.ingredientCandidates,
+    manufacturer: extracted.manufacturer,
+  };
 }
 
 export { extractPackageFields, hasUsableText } from './extract';

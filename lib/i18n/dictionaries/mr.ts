@@ -97,6 +97,7 @@ export const mr: Dictionary = {
     processingCheck: 'औषधाची माहिती तपासत आहे...',
     processingVerify: 'औषध पडताळत आहे...',
     processingExplain: 'तुमची माहिती तयार करत आहे...',
+    processingFirstScan: 'या डिव्हाइसवरील पहिले स्कॅन: मजकूर वाचक डाउनलोड होत आहे. पुढील स्कॅन लगेच सुरू होतील.',
     permissionDeniedTitle: 'कॅमेरा परवानगी बंद आहे',
     permissionDeniedBody:
       'स्कॅन करण्यासाठी MediLens ला कॅमेरा हवा. ब्राउझर सेटिंग्जमध्ये कॅमेरा परवानगी द्या, किंवा फोटो अपलोड करा.',

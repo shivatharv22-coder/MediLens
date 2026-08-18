@@ -97,6 +97,7 @@ export const en: Dictionary = {
     processingCheck: 'Checking the medicine information...',
     processingVerify: 'Verifying the medicine...',
     processingExplain: 'Preparing your explanation...',
+    processingFirstScan: 'First scan on this device: downloading the text reader. Later scans start straight away.',
     permissionDeniedTitle: 'Camera permission is off',
     permissionDeniedBody:
       'MediLens needs camera access to scan a package. Allow camera access in your browser settings, or upload a photo instead.',

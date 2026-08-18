@@ -98,7 +98,7 @@ describe('demo repository', () => {
   });
 
   it('never reports demo records as verified', async () => {
-    for (const medicine of await repository.listForMatching()) {
+    for (const medicine of await repository.findMatchCandidates()) {
       expect(medicine.verificationStatus).toBe('UNVERIFIED');
       expect(medicine.lastVerifiedAt).toBeNull();
       expect(medicine.sources.every((s) => s.category === 'DEMO_SEED_DATA')).toBe(true);
@@ -106,7 +106,7 @@ describe('demo repository', () => {
   });
 
   it('gives every record at least one source', async () => {
-    for (const medicine of await repository.listForMatching()) {
+    for (const medicine of await repository.findMatchCandidates()) {
       expect(medicine.sources.length).toBeGreaterThan(0);
     }
   });

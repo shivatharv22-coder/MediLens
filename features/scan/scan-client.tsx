@@ -13,6 +13,7 @@ import { apiFetch, translateError, useAsync } from '@/hooks/use-api';
 import { useDict, useLanguage } from '@/lib/i18n/client';
 import { prepareImage, toPixelCrop } from '@/utils/image';
 import type { ExtractedPackageFields, IdentificationResult } from '@/types/identification';
+import { recogniseInBrowser } from './browser-ocr';
 import { CameraCapture } from './camera-capture';
 import { ExtractedFields, RawTextPanel } from './extracted-fields';
 import { ImagePreview, type FractionCrop } from './image-preview';
@@ -44,6 +45,8 @@ export function ScanClient() {
   const [captured, setCaptured] = useState<Blob | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [result, setResult] = useState<ScanResponse | null>(null);
+  const [ocrProgress, setOcrProgress] = useState<number | null>(null);
+  const [ocrDownloading, setOcrDownloading] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -53,9 +56,38 @@ export function ScanClient() {
 
   const upload = useAsync(async (blob: Blob) => {
     const form = new FormData();
-    form.append('image', blob, 'scan.jpg');
     form.append('language', locale);
     form.append('keepImage', String(preferences.saveScanImages));
+
+    // Read the pack here rather than in the API route — see `browser-ocr.ts`.
+    let ocr: Awaited<ReturnType<typeof recogniseInBrowser>> | null = null;
+    try {
+      setOcrProgress(0);
+      ocr = await recogniseInBrowser(blob, {
+        onProgress: setOcrProgress,
+        onDownloading: () => setOcrDownloading(true),
+      });
+    } catch {
+      // The engine could not start (no WASM, or offline before it was ever
+      // cached). Send the image and let the server read it instead.
+      ocr = null;
+    } finally {
+      setOcrDownloading(false);
+      setOcrProgress(null);
+    }
+
+    if (ocr) {
+      form.append('ocrText', ocr.text);
+      form.append('ocrConfidence', String(ocr.confidence));
+      form.append('ocrProvider', ocr.provider);
+    }
+
+    // The photo is uploaded only when it is actually needed: because the server
+    // has to read it, or because the user asked for their images to be kept.
+    if (!ocr || preferences.saveScanImages) {
+      form.append('image', blob, 'scan.jpg');
+    }
+
     return apiFetch<ScanResponse>('/api/scan', { method: 'POST', body: form });
   });
 
@@ -161,7 +193,9 @@ export function ScanClient() {
         </>
       )}
 
-      {stage === 'processing' && <ProcessingState />}
+      {stage === 'processing' && (
+        <ProcessingState progress={ocrProgress} firstScan={ocrDownloading} />
+      )}
 
       {stage === 'result' && result && (
         <div className="space-y-4">
