@@ -96,15 +96,75 @@ export function isDatabaseUnavailable(e: unknown): boolean {
   return isDatabaseUnavailable((e as { cause?: unknown }).cause);
 }
 
-export async function pingDb(): Promise<boolean> {
+/**
+ * Coarse reason a connection attempt failed.
+ *
+ * Deliberately a fixed set of categories rather than the driver's message:
+ * this is surfaced on a public health endpoint, so it must say enough to tell
+ * a misconfigured password from a blocked network path, and nothing more. No
+ * host, database name, user or connection string ever appears here.
+ */
+export type DbFailureReason =
+  | 'AUTH_FAILED'
+  | 'HOST_NOT_FOUND'
+  | 'CONNECTION_REFUSED'
+  | 'TIMEOUT'
+  | 'TLS_FAILED'
+  | 'MALFORMED_URL'
+  | 'DATABASE_NOT_FOUND'
+  | 'UNKNOWN';
+
+export function classifyDbFailure(e: unknown): DbFailureReason {
+  const message = String((e as { message?: unknown })?.message ?? '');
+  const code = String((e as { code?: unknown })?.code ?? '');
+
+  // Postgres SQLSTATEs are the most reliable signal when we get one.
+  if (code === '28P01' || code === '28000') return 'AUTH_FAILED';
+  if (code === '3D000') return 'DATABASE_NOT_FOUND';
+
+  if (/password authentication failed|authentication failed|role .* does not exist/i.test(message)) {
+    return 'AUTH_FAILED';
+  }
+  if (/database .* does not exist/i.test(message)) return 'DATABASE_NOT_FOUND';
+  if (/ENOTFOUND|getaddrinfo|EAI_AGAIN|could not translate host name/i.test(message)) {
+    return 'HOST_NOT_FOUND';
+  }
+  if (/ECONNREFUSED|connection refused/i.test(message)) return 'CONNECTION_REFUSED';
+  if (/ETIMEDOUT|timeout|timed out/i.test(message)) return 'TIMEOUT';
+  if (/SSL|TLS|certificate|self.signed/i.test(message)) return 'TLS_FAILED';
+  if (/invalid (connection string|url|port)|must start with|malformed/i.test(message)) {
+    return 'MALFORMED_URL';
+  }
+  return 'UNKNOWN';
+}
+
+export interface DbPing {
+  reachable: boolean;
+  /** Only set when `reachable` is false. */
+  reason?: DbFailureReason;
+}
+
+/**
+ * Try one trivial query.
+ *
+ * Returns *why* it failed, not just that it did: "DATABASE_URL is set but the
+ * database is unreachable" is the same symptom for a wrong password, a network
+ * path the platform cannot take, and a connection string that was pasted with
+ * its surrounding quotes. Without the reason, diagnosing a deployment means
+ * guessing between them.
+ */
+export async function pingDb(): Promise<DbPing> {
   const db = getDb();
-  if (!db) return false;
+  if (!db) return { reachable: false, reason: 'MALFORMED_URL' };
   try {
     await db.$queryRaw`SELECT 1`;
-    return true;
+    return { reachable: true };
   } catch (e) {
-    logger.error('Database ping failed', { error: (e as Error).name });
-    return false;
+    const reason = classifyDbFailure(e);
+    // The full message goes to the server log, where secrets are acceptable
+    // and the operator can actually read it.
+    logger.error('Database ping failed', { error: (e as Error).name, reason, message: (e as Error).message });
+    return { reachable: false, reason };
   }
 }
 
