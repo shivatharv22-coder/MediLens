@@ -74,10 +74,21 @@ export function isDatabaseUnavailable(e: unknown): boolean {
   const name = (e as { name?: unknown }).name;
   if (name === 'PrismaClientInitializationError') return true;
 
-  // The pg driver surfaces a refused socket rather than a Prisma code.
+  // Some failures are only identifiable from the message.
+  //
+  //  * The pg driver surfaces a refused socket rather than a Prisma code.
+  //  * `$queryRaw` reports *every* failure as P2010 ("raw query failed") and
+  //    puts the real cause in the message, so an unreachable server and a typo
+  //    in the SQL arrive under the same code. Matching on the wording is what
+  //    keeps the honest DATABASE_UNAVAILABLE for the first without also
+  //    claiming the database is down for the second.
   const message = (e as { message?: unknown }).message;
   if (typeof message === 'string') {
-    if (/ECONNREFUSED|ENOTFOUND|ETIMEDOUT|Connection terminated|server closed the connection/i.test(message)) {
+    if (
+      /ECONNREFUSED|ENOTFOUND|ETIMEDOUT|Connection terminated|server closed the connection|(?:can'?t|cannot) reach database server/i.test(
+        message,
+      )
+    ) {
       return true;
     }
   }
