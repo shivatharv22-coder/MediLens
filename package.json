@@ -18,12 +18,15 @@
     "db:seed": "tsx database/seed.ts",
     "db:studio": "prisma studio",
     "admin:create": "tsx scripts/create-admin.ts",
-    "dev:reset-link": "tsx scripts/dev-reset-link.ts"
+    "dev:reset-link": "tsx scripts/dev-reset-link.ts",
+    "db:import": "tsx scripts/import-medicines-csv.ts"
   },
   "dependencies": {
+    "@next/env": "^16.3.1",
     "@prisma/adapter-pg": "^7.9.1",
     "@prisma/client": "^7.9.1",
     "bcryptjs": "^3.0.3",
+    "csv-parse": "^7.0.2",
     "jose": "^6.2.8",
     "next": "^16.3.0",
     "pg": "^8.23.0",

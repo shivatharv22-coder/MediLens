@@ -73,7 +73,7 @@ export const hi: Dictionary = {
     intro: 'दवा का पैकेट, स्ट्रिप, डिब्बा या बोतल फ़ोटो करें।',
     emptyState: 'शुरू करने के लिए दवा का पैकेट स्कैन करें।',
     startCamera: 'कैमरा खोलें',
-    uploadImage: 'फ़ोटो अपलोड करें',
+    uploadImage: 'फ़ोटो अपलोड करें या लें',
     capture: 'फ़ोटो लें',
     retake: 'दोबारा लें',
     usePhoto: 'यही फ़ोटो लें',

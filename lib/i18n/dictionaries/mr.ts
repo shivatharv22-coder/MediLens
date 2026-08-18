@@ -73,7 +73,7 @@ export const mr: Dictionary = {
     intro: 'औषधाचे पाकीट, स्ट्रिप, खोका किंवा बाटली फोटो काढा.',
     emptyState: 'सुरू करण्यासाठी औषधाचे पाकीट स्कॅन करा.',
     startCamera: 'कॅमेरा उघडा',
-    uploadImage: 'फोटो अपलोड करा',
+    uploadImage: 'फोटो अपलोड करा किंवा काढा',
     capture: 'फोटो घ्या',
     retake: 'पुन्हा घ्या',
     usePhoto: 'हाच फोटो वापरा',

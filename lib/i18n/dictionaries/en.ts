@@ -73,7 +73,7 @@ export const en: Dictionary = {
     intro: 'Photograph the medicine package, strip, box, or bottle.',
     emptyState: 'Scan a medicine package to get started.',
     startCamera: 'Open camera',
-    uploadImage: 'Upload image',
+    uploadImage: 'Upload or take photo',
     capture: 'Capture',
     retake: 'Retake',
     usePhoto: 'Use this photo',

@@ -135,11 +135,15 @@ export function CameraCapture({
         </div>
       </div>
 
+      {/* No `capture` attribute on purpose. Setting capture="environment"
+          makes a phone jump straight into the camera and skip the OS chooser,
+          so a user who wants an existing photo cannot reach their gallery.
+          Without it the browser offers Camera / Gallery / Files, and the live
+          in-page camera is still one tap away via "Open camera". */}
       <input
         ref={fileRef}
         type="file"
         accept={ACCEPTED_IMAGE_MIME_TYPES.join(',')}
-        capture="environment"
         className="sr-only"
         onChange={(e) => {
           const file = e.target.files?.[0];

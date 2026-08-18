@@ -1,6 +1,7 @@
 import 'server-only';
 import { NextResponse } from 'next/server';
 import type { z } from 'zod';
+import { isDatabaseUnavailable } from './db';
 import { AppError, ERROR_CODES, isAppError } from './errors';
 import { logger } from './logger';
 import { enforceRateLimit } from './rate-limit';
@@ -23,7 +24,13 @@ export function created<T>(data: T): NextResponse<ApiResponse<T>> {
  * cause server-side. This is the only place an exception becomes an HTTP body.
  */
 export async function fail(e: unknown, area = 'api'): Promise<NextResponse<ApiResponse<never>>> {
-  const error = isAppError(e) ? e : new AppError(ERROR_CODES.INTERNAL, { cause: e });
+  const error = isAppError(e)
+    ? e
+    : isDatabaseUnavailable(e)
+      ? // "Postgres is down" is not an unknown internal fault. Saying so lets
+        // the user retry meaningfully instead of reading "Something went wrong".
+        new AppError(ERROR_CODES.DATABASE_UNAVAILABLE, { cause: e })
+      : new AppError(ERROR_CODES.INTERNAL, { cause: e });
 
   if (error.status >= 500) {
     logger.error('Request failed', {

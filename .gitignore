@@ -34,3 +34,9 @@ npm-debug.log*
 .dev-mail/
 
 .claude/
+
+# Bulk medicine source data, ~97 MB each. Deliberately not in git: GitHub warns
+# above 50 MB, the repo would carry them forever, and Vercel would download them
+# on every build. Keep local copies; the import script reads them from disk.
+database/medicines.csv
+database/data/Extensive_A_Z_medicines_dataset_of_India.csv
