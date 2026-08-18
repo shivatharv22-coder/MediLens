@@ -112,6 +112,7 @@ export type DbFailureReason =
   | 'TLS_FAILED'
   | 'MALFORMED_URL'
   | 'DATABASE_NOT_FOUND'
+  | 'NETWORK_UNREACHABLE'
   | 'UNKNOWN';
 
 export function classifyDbFailure(e: unknown): DbFailureReason {
@@ -134,6 +135,11 @@ export function classifyDbFailure(e: unknown): DbFailureReason {
   if (/SSL|TLS|certificate|self.signed/i.test(message)) return 'TLS_FAILED';
   if (/invalid (connection string|url|port)|must start with|malformed/i.test(message)) {
     return 'MALFORMED_URL';
+  }
+  // Prisma's own generic wording. Checked last, because the driver-level
+  // messages above say the same thing with an actual cause attached.
+  if (/(?:can'?t|cannot|unable to) reach (?:the )?database server/i.test(message)) {
+    return 'NETWORK_UNREACHABLE';
   }
   return 'UNKNOWN';
 }

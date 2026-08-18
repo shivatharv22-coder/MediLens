@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isDatabaseUnavailable } from '@/lib/db';
+import { classifyDbFailure, isDatabaseUnavailable } from '@/lib/db';
 
 /**
  * "Postgres is down" must stay distinguishable from "that query was wrong".
@@ -63,5 +63,36 @@ describe('isDatabaseUnavailable', () => {
   it('ignores non-errors', () => {
     expect(isDatabaseUnavailable(null)).toBe(false);
     expect(isDatabaseUnavailable('P1001')).toBe(false);
+  });
+});
+
+describe('classifyDbFailure', () => {
+  it('names an authentication failure from the SQLSTATE', () => {
+    expect(classifyDbFailure(prismaError('28P01', 'nope'))).toBe('AUTH_FAILED');
+  });
+
+  it('names an authentication failure from the message', () => {
+    expect(
+      classifyDbFailure(prismaError('P1000', 'password authentication failed for user "x"')),
+    ).toBe('AUTH_FAILED');
+  });
+
+  it('distinguishes DNS from a refused socket', () => {
+    expect(classifyDbFailure(prismaError('P1001', 'getaddrinfo ENOTFOUND db.example'))).toBe(
+      'HOST_NOT_FOUND',
+    );
+    expect(classifyDbFailure(prismaError('P1001', 'connect ECONNREFUSED 1.2.3.4:5432'))).toBe(
+      'CONNECTION_REFUSED',
+    );
+  });
+
+  it("categorises Prisma's generic unreachable wording", () => {
+    expect(classifyDbFailure(prismaError('P1001', "Can't reach database server at h:5432"))).toBe(
+      'NETWORK_UNREACHABLE',
+    );
+  });
+
+  it('falls back to UNKNOWN rather than guessing', () => {
+    expect(classifyDbFailure(prismaError('P2010', 'something else entirely'))).toBe('UNKNOWN');
   });
 });
