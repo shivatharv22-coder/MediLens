@@ -363,8 +363,7 @@ devices.
 | --- | --- |
 | `/profile` | Signed out, this **is** the sign-in screen. Signed in, it shows the account |
 | `/auth/sign-up` | Create an account. Password rules are visible and tick off live |
-| `/auth/forgot-password` | Request a reset link |
-| `/auth/reset-password?token=…` | Choose a new password |
+| `/auth/forgot-password` | Request a reset code, enter it, then choose a new password |
 | `/auth/sign-in` | Redirect to `/profile`, so the conventional path still works |
 
 Sign-in, sign-up and sign-out all finish with a **full navigation**, not
@@ -386,10 +385,13 @@ a number. They are stored as bcrypt hashes at cost 12 — never in plain text.
 
 ### Password reset
 
-Tokens are 32 random bytes, stored only as a SHA-256 hash, valid for
-`PASSWORD_RESET_TTL_MINUTES` (30 by default), and **single use**. Requesting a
-new link invalidates any outstanding one, and completing a reset revokes every
-existing session for that account.
+Reset uses a **6-digit code** emailed to the account holder. The code is stored
+only as `sha256(userId:code)`, valid for `PASSWORD_RESET_TTL_MINUTES`
+(10 by default), and **single use**. Requesting a new code invalidates any
+outstanding one, and completing a reset revokes every existing session for that
+account. The code is verified against the account (email + code) — a bare
+six-digit code identifies no one — and verifying and completing answer
+identically for a wrong code and an unknown address.
 
 `/api/auth/forgot-password` answers identically whether or not the address is
 registered, so it cannot be used to discover who has an account.
@@ -400,18 +402,18 @@ Delivery depends on `MAIL_PROVIDER`, and the UI states plainly what happened:
 | --- | --- | --- |
 | `none` *(default)* | Nothing is sent | "Email delivery is not set up on this installation, so no email was sent." |
 | `dev` | Message written to `./.dev-mail/` | "Development mode: no email was sent." |
-| `resend` | Real email via Resend | "If an account exists for that address, a password reset link is on its way." |
+| `resend` | Real email via Resend | "If an account exists for that address, a 6-digit reset code is on its way." |
 
 **Local development.** Set `MAIL_PROVIDER=dev` in `.env.local`, request a reset,
-then read the newest link:
+then read the newest code:
 
 ```bash
-npm run dev:reset-link
+npm run dev:reset-code
 ```
 
-`.dev-mail/` is gitignored and its files are written `0600`. The reset link is
+`.dev-mail/` is gitignored and its files are written `0600`. The reset code is
 deliberately **not** returned by the API and **not** written to the application
-log — the log records only the file name — so a token cannot leak through a
+log — the log records only the file name — so a code cannot leak through a
 response body, a log shipper, or an error message.
 
 **Production.** Set `MAIL_PROVIDER=resend`, `RESEND_API_KEY` and `MAIL_FROM`.

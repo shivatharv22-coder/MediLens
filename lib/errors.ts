@@ -63,7 +63,7 @@ const SAFE_MESSAGE: Record<ErrorCode, string> = {
   STORAGE_FAILED: 'We could not save that file. Please try again.',
   EMAIL_FAILED: 'We could not send that email right now. Please try again shortly.',
   INVALID_RESET_TOKEN:
-    'This password reset link is invalid or has expired. Please request a new one.',
+    'This password reset code is invalid or has expired. Please request a new one.',
   UNSUPPORTED_LANGUAGE: 'That language is not supported yet.',
   FEATURE_DISABLED: 'This feature is not enabled on this installation.',
   CONFLICT: 'That change conflicts with an existing record.',

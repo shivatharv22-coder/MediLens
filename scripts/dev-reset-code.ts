@@ -1,18 +1,18 @@
 /**
- * Print the most recent development password-reset link.
+ * Print the most recent development password-reset code.
  *
  * Only useful with MAIL_PROVIDER=dev, which writes reset messages to
- * `.dev-mail/` instead of emailing them. This script just reads the newest file
- * so you do not have to hunt for it.
+ * `.dev-mail/` instead of emailing them. This script reads the newest one and
+ * prints the 6-digit code so you do not have to open the file.
  *
- * Usage: npm run dev:reset-link
+ * Usage: npm run dev:reset-code
  *
  * The directory is gitignored and the files are written 0600. Never run this
  * against a production installation, and never paste its output anywhere.
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { extractResetLink, isResetMailFile } from './dev-reset-link.core';
+import { extractResetCode, isResetMailFile } from './dev-reset-code.core';
 
 const dir = path.resolve(process.cwd(), '.dev-mail');
 
@@ -41,13 +41,11 @@ const contents = fs.readFileSync(newest, 'utf8');
 console.log(`--- ${files[0].f} ---`);
 console.log(contents);
 
-const link = extractResetLink(contents);
-if (link) {
-  console.log('Open this link to continue the reset:');
-  console.log(link);
+const code = extractResetCode(contents);
+if (code) {
+  console.log('Enter this code to continue the reset:');
+  console.log(code);
 } else {
-  // The message exists but carries no usable link — surface that rather than
-  // exiting silently, so a broken email body is obvious instead of mysterious.
-  console.error('This message contained no usable reset link.');
+  console.error('This message contained no usable reset code.');
   process.exit(1);
 }

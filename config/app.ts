@@ -91,7 +91,6 @@ export const ROUTES = {
   signIn: '/profile',
   signUp: '/auth/sign-up',
   forgotPassword: '/auth/forgot-password',
-  resetPassword: '/auth/reset-password',
   admin: '/admin',
   adminLogin: '/admin/login',
   adminMedicines: '/admin/medicines',

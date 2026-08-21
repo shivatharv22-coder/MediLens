@@ -256,6 +256,12 @@ export interface Dictionary {
     resetSentDev: string;
     resetNotConfigured: string;
     resetLinkExpiry: string;
+    codeLabel: string;
+    codeHelp: string;
+    verifyCode: string;
+    resendCode: string;
+    codeInvalid: string;
+    devResetCommand: string;
     backToSignIn: string;
     resetTitle: string;
     resetSubtitle: string;
@@ -265,7 +271,6 @@ export interface Dictionary {
     resetInvalidBody: string;
     resetDoneTitle: string;
     resetDoneBody: string;
-    checkingLink: string;
     accountCreated: string;
   };
   settings: {

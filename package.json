@@ -19,7 +19,7 @@
     "db:languages": "tsx scripts/ensure-languages.ts",
     "db:studio": "prisma studio",
     "admin:create": "tsx scripts/create-admin.ts",
-    "dev:reset-link": "tsx scripts/dev-reset-link.ts",
+    "dev:reset-code": "tsx scripts/dev-reset-code.ts",
     "db:import": "tsx scripts/import-medicines-csv.ts"
   },
   "dependencies": {

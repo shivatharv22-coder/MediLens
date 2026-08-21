@@ -32,7 +32,7 @@ export async function POST(req: Request) {
     // Only the channel is returned. The dev mailer's file path is deliberately
     // NOT included: it is present for a real account and absent for an unknown
     // one, which would turn this endpoint into an account-existence oracle.
-    // Developers read the link with `npm run dev:reset-link` instead.
+    // Developers read the code with `npm run dev:reset-code` instead.
     return ok({
       channel: outcome.channel,
       expiresInMinutes: env.PASSWORD_RESET_TTL_MINUTES,
