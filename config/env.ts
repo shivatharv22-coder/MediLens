@@ -101,8 +101,9 @@ export function assertProductionReady(): string[] {
   if (env.MAIL_PROVIDER !== 'resend') {
     problems.push('MAIL_PROVIDER is not a real email provider, so password reset cannot email users.');
   }
-  if (env.MAIL_PROVIDER === 'resend' && (!env.RESEND_API_KEY || !env.MAIL_FROM)) {
-    problems.push('MAIL_PROVIDER=resend but RESEND_API_KEY or MAIL_FROM is empty.');
+  if (env.MAIL_PROVIDER === 'resend' && !env.RESEND_API_KEY) {
+    // MAIL_FROM is optional: it defaults to Resend's sandbox sender.
+    problems.push('MAIL_PROVIDER=resend but RESEND_API_KEY is empty.');
   }
   return problems;
 }
