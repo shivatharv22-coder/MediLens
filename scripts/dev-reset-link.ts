@@ -12,6 +12,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import { extractResetLink, isResetMailFile } from './dev-reset-link.core';
 
 const dir = path.resolve(process.cwd(), '.dev-mail');
 
@@ -25,7 +26,7 @@ if (!fs.existsSync(dir)) {
 
 const files = fs
   .readdirSync(dir)
-  .filter((f) => f.endsWith('.txt') && f.includes('password-reset'))
+  .filter(isResetMailFile)
   .map((f) => ({ f, mtime: fs.statSync(path.join(dir, f)).mtimeMs }))
   .sort((a, b) => b.mtime - a.mtime);
 
@@ -40,8 +41,13 @@ const contents = fs.readFileSync(newest, 'utf8');
 console.log(`--- ${files[0].f} ---`);
 console.log(contents);
 
-const link = contents.match(/https?:\/\/\S*reset-password\S*/)?.[0];
+const link = extractResetLink(contents);
 if (link) {
   console.log('Open this link to continue the reset:');
   console.log(link);
+} else {
+  // The message exists but carries no usable link — surface that rather than
+  // exiting silently, so a broken email body is obvious instead of mysterious.
+  console.error('This message contained no usable reset link.');
+  process.exit(1);
 }
