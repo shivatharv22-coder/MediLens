@@ -1,5 +1,5 @@
 import 'server-only';
-import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes, randomInt, timingSafeEqual } from 'node:crypto';
 import bcrypt from 'bcryptjs';
 
 const BCRYPT_ROUNDS = 12;
@@ -19,6 +19,19 @@ export async function verifyPassword(plain: string, hash: string): Promise<boole
 /** Opaque, URL-safe random token. */
 export function randomToken(bytes = 32): string {
   return randomBytes(bytes).toString('base64url');
+}
+
+/**
+ * Uniform numeric one-time code, e.g. "042317".
+ *
+ * `randomInt` is cryptographically secure and unbiased across the range, and
+ * the pad keeps leading zeros so every value in 000000–999999 is equally
+ * likely — a code is a full six digits, never a shorter number.
+ */
+export function randomNumericCode(digits = 6): string {
+  return randomInt(0, 10 ** digits)
+    .toString()
+    .padStart(digits, '0');
 }
 
 export function sha256(value: string): string {

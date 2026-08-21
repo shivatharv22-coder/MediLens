@@ -107,10 +107,21 @@ export const forgotPasswordSchema = z.object({
   email: z.string().trim().toLowerCase().email().max(254),
 });
 
+/** A reset code is exactly six digits; leading zeros are significant. */
+const resetCodeSchema = z.string().trim().regex(/^\d{6}$/, 'Enter the 6-digit code from your email.');
+
+const resetEmailSchema = z.string().trim().toLowerCase().email().max(254);
+
+export const verifyResetCodeSchema = z.object({
+  email: resetEmailSchema,
+  code: resetCodeSchema,
+});
+
 export const resetPasswordSchema = z
   .object({
-    // Long enough to be a real token; the value itself is never echoed back.
-    token: z.string().trim().min(16).max(256),
+    email: resetEmailSchema,
+    // The code is verified against the database; its value is never echoed back.
+    code: resetCodeSchema,
     password: passwordSchema,
     confirmPassword: z.string().min(1),
   })
@@ -118,10 +129,6 @@ export const resetPasswordSchema = z
     message: 'The two passwords do not match.',
     path: ['confirmPassword'],
   });
-
-export const inspectResetTokenSchema = z.object({
-  token: z.string().trim().min(16).max(256),
-});
 
 // --- Admin ----------------------------------------------------------------
 

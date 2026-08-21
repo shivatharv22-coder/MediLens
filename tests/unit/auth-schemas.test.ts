@@ -4,6 +4,7 @@ import {
   resetPasswordSchema,
   signInSchema,
   signUpSchema,
+  verifyResetCodeSchema,
 } from '@/lib/schemas';
 import { PASSWORD_RULES } from '@/config/app';
 
@@ -81,12 +82,32 @@ describe('forgotPasswordSchema', () => {
   });
 });
 
+describe('verifyResetCodeSchema', () => {
+  it('accepts an email and a 6-digit code, keeping leading zeros', () => {
+    const result = verifyResetCodeSchema.safeParse({ email: 'a@b.com', code: '042317' });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.code).toBe('042317');
+  });
+
+  it('lower-cases the email so lookups are stable', () => {
+    const result = verifyResetCodeSchema.safeParse({ email: 'A@B.COM', code: '123456' });
+    expect(result.success && result.data.email).toBe('a@b.com');
+  });
+
+  it.each(['12345', '1234567', '12a456', '', ' 123456 '.trim().slice(0, 5)])(
+    'rejects a code that is not exactly six digits: %j',
+    (code) => {
+      expect(verifyResetCodeSchema.safeParse({ email: 'a@b.com', code }).success).toBe(false);
+    },
+  );
+});
+
 describe('resetPasswordSchema', () => {
-  const token = 'a'.repeat(43);
+  const base = { email: 'a@b.com', code: '042317' };
 
   it('accepts a matching pair that satisfies the policy', () => {
     const result = resetPasswordSchema.safeParse({
-      token,
+      ...base,
       password: 'CorrectHorse1Battery',
       confirmPassword: 'CorrectHorse1Battery',
     });
@@ -95,7 +116,7 @@ describe('resetPasswordSchema', () => {
 
   it('rejects a mismatched confirmation and points at the right field', () => {
     const result = resetPasswordSchema.safeParse({
-      token,
+      ...base,
       password: 'CorrectHorse1Battery',
       confirmPassword: 'CorrectHorse1Batteryy',
     });
@@ -107,16 +128,17 @@ describe('resetPasswordSchema', () => {
 
   it('applies the same password policy as sign-up', () => {
     const result = resetPasswordSchema.safeParse({
-      token,
+      ...base,
       password: 'weak',
       confirmPassword: 'weak',
     });
     expect(result.success).toBe(false);
   });
 
-  it('rejects a token that is too short to be real', () => {
+  it('rejects a code that is not six digits', () => {
     const result = resetPasswordSchema.safeParse({
-      token: 'abc',
+      email: 'a@b.com',
+      code: 'abc',
       password: 'CorrectHorse1Battery',
       confirmPassword: 'CorrectHorse1Battery',
     });

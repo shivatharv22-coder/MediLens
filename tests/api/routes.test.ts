@@ -258,12 +258,33 @@ describe('password reset endpoints', () => {
     expect(known).toEqual(unknown);
   });
 
+  it('rejects a cross-origin code verification', async () => {
+    const { POST } = await import('@/app/api/auth/reset-password/verify/route');
+    const response = await POST(
+      post('/api/auth/reset-password/verify', { email: 'a@b.com', code: '042317' }, 'https://evil.example.com'),
+    );
+    expect(response.status).toBe(403);
+  });
+
+  it('declines code verification when accounts are not enabled', async () => {
+    const { POST } = await import('@/app/api/auth/reset-password/verify/route');
+    const response = await POST(post('/api/auth/reset-password/verify', { email: 'a@b.com', code: '042317' }));
+    const body = await response.json();
+    expect(response.status).toBe(503);
+    expect(body.error).toBe('FEATURE_DISABLED');
+  });
+
   it('rejects a cross-origin reset submission', async () => {
     const { POST } = await import('@/app/api/auth/reset-password/route');
     const response = await POST(
       post(
         '/api/auth/reset-password',
-        { token: 'a'.repeat(43), password: 'CorrectHorse1Battery', confirmPassword: 'CorrectHorse1Battery' },
+        {
+          email: 'a@b.com',
+          code: '042317',
+          password: 'CorrectHorse1Battery',
+          confirmPassword: 'CorrectHorse1Battery',
+        },
         'https://evil.example.com',
       ),
     );
@@ -274,7 +295,8 @@ describe('password reset endpoints', () => {
     const { POST } = await import('@/app/api/auth/reset-password/route');
     const response = await POST(
       post('/api/auth/reset-password', {
-        token: 'a'.repeat(43),
+        email: 'a@b.com',
+        code: '042317',
         password: 'CorrectHorse1Battery',
         confirmPassword: 'DifferentHorse1Battery',
       }),
@@ -286,7 +308,8 @@ describe('password reset endpoints', () => {
     const { POST } = await import('@/app/api/auth/reset-password/route');
     const response = await POST(
       post('/api/auth/reset-password', {
-        token: 'a'.repeat(43),
+        email: 'a@b.com',
+        code: '042317',
         password: 'weak',
         confirmPassword: 'weak',
       }),
@@ -295,17 +318,18 @@ describe('password reset endpoints', () => {
     expect(response.status).toBe(503);
   });
 
-  it('never echoes the submitted token back to the caller', async () => {
+  it('never echoes the submitted code back to the caller', async () => {
     const { POST } = await import('@/app/api/auth/reset-password/route');
-    const token = 'z'.repeat(43);
+    const code = '424242';
     const response = await POST(
       post('/api/auth/reset-password', {
-        token,
+        email: 'a@b.com',
+        code,
         password: 'CorrectHorse1Battery',
         confirmPassword: 'CorrectHorse1Battery',
       }),
     );
-    expect(JSON.stringify(await response.json())).not.toContain(token);
+    expect(JSON.stringify(await response.json())).not.toContain(code);
   });
 });
 

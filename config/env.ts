@@ -34,7 +34,9 @@ const envSchema = z.object({
   MAIL_PROVIDER: z.enum(['none', 'dev', 'resend']).default('none'),
   MAIL_FROM: z.string().optional().default(''),
   RESEND_API_KEY: z.string().optional().default(''),
-  PASSWORD_RESET_TTL_MINUTES: z.coerce.number().int().positive().max(1440).default(30),
+  // Short by design: a 6-digit reset code has only a million possibilities, so
+  // a narrow window is a large part of what keeps it unguessable.
+  PASSWORD_RESET_TTL_MINUTES: z.coerce.number().int().positive().max(1440).default(10),
 
   TRANSLATION_PROVIDER: z.enum(['stored', 'ai']).default('stored'),
   TTS_PROVIDER: z.enum(['browser', 'server']).default('browser'),

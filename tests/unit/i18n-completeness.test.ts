@@ -30,10 +30,10 @@ const DICTS: [string, Dictionary][] = [
 ];
 
 /**
- * Values that are correctly identical across languages: the product name, and
- * the text-direction marker.
+ * Values that are correctly identical across languages: the product name, the
+ * text-direction marker, and the `npm` command a developer types verbatim.
  */
-const SHARED_WITH_ENGLISH = new Set(['common.appName', 'meta.dir']);
+const SHARED_WITH_ENGLISH = new Set(['common.appName', 'meta.dir', 'auth.devResetCommand']);
 
 const DEVANAGARI = /[ऀ-ॿ]/;
 
