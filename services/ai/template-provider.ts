@@ -1,5 +1,6 @@
 import { AppError, ERROR_CODES } from '@/lib/errors';
 import type { MedicineContent } from '@/types/medicine';
+import { getDictionary } from '@/lib/i18n';
 import { dosageFormLabel } from '@/utils/format';
 import { noVerifiedInfoMessage, refusalMessage, screenQuestion } from './safety';
 import type {
@@ -218,7 +219,7 @@ export class TemplateAiProvider implements AiProvider {
           medicine.brandName,
           medicine.genericName,
           medicine.strength,
-          dosageFormLabel(medicine.dosageForm),
+          dosageFormLabel(medicine.dosageForm, getDictionary(language).dosageForms),
         ),
       );
       grounded.push('brandName', 'genericName', 'strength', 'dosageForm');
@@ -322,7 +323,7 @@ export class TemplateAiProvider implements AiProvider {
         break;
       case 'FORM':
         result = build(
-          p.formLead(medicine.brandName, dosageFormLabel(medicine.dosageForm)),
+          p.formLead(medicine.brandName, dosageFormLabel(medicine.dosageForm, getDictionary(language).dosageForms)),
           'dosageForm',
         );
         break;

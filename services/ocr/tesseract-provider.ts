@@ -24,10 +24,16 @@ export class TesseractOcrProvider implements OcrProvider {
     try {
       // Imported lazily: the worker pulls in a large WASM bundle that must not
       // be part of the cold-start path for requests that never OCR anything.
-      const { createWorker } = await import('tesseract.js');
+      const { createWorker, PSM } = await import('tesseract.js');
       const worker = await createWorker(languages.join('+'));
 
       try {
+        // Set explicitly: tesseract.js defaults to SINGLE_BLOCK, which treats
+        // the image as one uniform block of text and discards the brand name
+        // on a medicine pack precisely because it is set larger than
+        // everything around it. AUTO keeps it, and keeps reading order, which
+        // `extractPackageFields` relies on to pick the brand out.
+        await worker.setParameters({ tessedit_pageseg_mode: PSM.AUTO });
         const { data } = await worker.recognize(Buffer.from(request.image));
         const pageConfidence = Math.max(0, Math.min(1, (data.confidence ?? 0) / 100));
 

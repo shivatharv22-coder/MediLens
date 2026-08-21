@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useDict } from '@/lib/i18n/client';
 import { cn } from '@/utils/cn';
+import { containedImageRect, type ContentRect } from '@/utils/image';
 
 /**
  * Preview and crop step.
@@ -31,9 +32,33 @@ export function ImagePreview({
   onConfirm: (crop: FractionCrop | null) => void;
 }) {
   const dict = useDict();
-  const containerRef = useRef<HTMLDivElement>(null);
+  const imageRef = useRef<HTMLImageElement>(null);
   const [crop, setCrop] = useState<FractionCrop>(FULL);
   const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null);
+  // Where the picture sits inside the <img> box. Needed by both the pointer
+  // maths and the overlay, so that the rectangle the user sees is exactly the
+  // rectangle that gets cropped.
+  const [content, setContent] = useState<ContentRect | null>(null);
+
+  const measure = useCallback(() => {
+    const image = imageRef.current;
+    if (!image || !image.naturalWidth) return;
+    const rect = image.getBoundingClientRect();
+    setContent(
+      containedImageRect(
+        { width: rect.width, height: rect.height },
+        image.naturalWidth,
+        image.naturalHeight,
+      ),
+    );
+  }, []);
+
+  // The letterbox changes with the viewport, so a resize invalidates it.
+  useEffect(() => {
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [measure, previewUrl]);
 
   // Escape cancels an in-progress drag rather than committing a stray crop.
   useEffect(() => {
@@ -44,12 +69,18 @@ export function ImagePreview({
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
+  /**
+   * Pointer position as a fraction *of the picture*, not of the element.
+   * Returns null while the image is unmeasured, so a drag started before load
+   * cannot produce a crop against a guessed geometry.
+   */
   const pointFrom = (e: React.PointerEvent) => {
-    const rect = containerRef.current?.getBoundingClientRect();
-    if (!rect) return null;
+    const image = imageRef.current;
+    if (!image || !content || content.width <= 0 || content.height <= 0) return null;
+    const rect = image.getBoundingClientRect();
     return {
-      x: Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width)),
-      y: Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height)),
+      x: Math.min(1, Math.max(0, (e.clientX - rect.left - content.left) / content.width)),
+      y: Math.min(1, Math.max(0, (e.clientY - rect.top - content.top) / content.height)),
     };
   };
 
@@ -58,7 +89,6 @@ export function ImagePreview({
   return (
     <div className="space-y-4">
       <div
-        ref={containerRef}
         className="relative touch-none overflow-hidden rounded-2xl bg-ink-900"
         onPointerDown={(e) => {
           const point = pointFrom(e);
@@ -87,17 +117,23 @@ export function ImagePreview({
         {/* A blob: URL cannot be optimised by next/image, and the natural size
             is unknown here, so a plain <img> is correct. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={previewUrl} alt="" className="block max-h-[60vh] w-full object-contain" />
+        <img
+          ref={imageRef}
+          src={previewUrl}
+          alt=""
+          onLoad={measure}
+          className="block max-h-[60vh] w-full object-contain"
+        />
 
-        {isCropped && (
+        {isCropped && content && (
           <div
             aria-hidden
             className="pointer-events-none absolute border-2 border-white shadow-[0_0_0_100vmax_rgba(0,0,0,0.45)]"
             style={{
-              left: `${crop.x * 100}%`,
-              top: `${crop.y * 100}%`,
-              width: `${crop.width * 100}%`,
-              height: `${crop.height * 100}%`,
+              left: `${content.left + crop.x * content.width}px`,
+              top: `${content.top + crop.y * content.height}px`,
+              width: `${crop.width * content.width}px`,
+              height: `${crop.height * content.height}px`,
             }}
           />
         )}

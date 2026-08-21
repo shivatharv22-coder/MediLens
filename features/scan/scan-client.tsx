@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ROUTES } from '@/config/app';
+import { CLIENT_OCR_MAX_EDGE, ROUTES } from '@/config/app';
 import { usePreferences } from '@/components/preferences-provider';
 import { SafetyNotice } from '@/components/safety-notice';
 import { PageHeader } from '@/components/layout/page-header';
@@ -76,6 +76,12 @@ export function ScanClient() {
       setOcrProgress(null);
     }
 
+    // Empty output is not a result, it is a failed read. Sending it as one
+    // would have the server reject the request for a missing image, so the
+    // user would be told to check a form field over an unreadable photo.
+    // Treated as "the device could not read it" so the server can try instead.
+    if (ocr && !ocr.text.trim()) ocr = null;
+
     if (ocr) {
       form.append('ocrText', ocr.text);
       form.append('ocrConfidence', String(ocr.confidence));
@@ -116,6 +122,7 @@ export function ScanClient() {
         const bitmapSize = await imageSize(captured);
         const prepared = await prepareImage(captured, {
           crop: crop ? toPixelCrop(crop, bitmapSize.width, bitmapSize.height) : null,
+          maxEdge: CLIENT_OCR_MAX_EDGE,
         });
         // The prepared preview URL is not shown; release it immediately.
         URL.revokeObjectURL(prepared.previewUrl);
@@ -282,7 +289,9 @@ function PackTypePicker({
 /** Natural pixel size of a blob, needed to convert a fractional crop. */
 async function imageSize(blob: Blob): Promise<{ width: number; height: number }> {
   if (typeof createImageBitmap === 'function') {
-    const bitmap = await createImageBitmap(blob);
+    // Same orientation handling as `prepareImage`: these two must agree, or
+    // the crop is expressed against different axes than it is applied to.
+    const bitmap = await createImageBitmap(blob, { imageOrientation: 'from-image' });
     const size = { width: bitmap.width, height: bitmap.height };
     bitmap.close();
     return size;
